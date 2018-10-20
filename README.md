@@ -1,9 +1,10 @@
-Dual Channel LoRaWAN Gateway (Up and Downlink)
+Rewrite of Dual Channel LoRaWAN Gateway (Up and Downlink)
+This repo aims rewrite Dual Channel LoRaWAN Gateway project in good c++ code, removing most of its c dependencies and unsafe/bad code
 ==============================
-This repository contains a proof-of-concept implementation of a dual
-channel LoRaWAN gateway.
+This repository is a WIP
+Single channel LoRaWAN gateway.
 
-It has been tested on the Raspberry Pi platform, using a Semtech SX1276 (2x HopeRF RFM95W uputronics hat).
+It has been tested on the Raspberry Pi platform, using a Semtech SX1276 
 (other configurations and the SX1272 not tested, but should be able to make working)
 
 The code is for testing and development purposes only, and is not meant
@@ -12,8 +13,7 @@ for production usage.
 Part of the source has been copied from the Semtech Packet Forwarder
 (with permission).
 
-Maintainer: Thomas Telkamp <thomas@telkamp.eu>
-
+Was forked by @Samt43 from https://github.com/bokse001/dual_chan_pkt_fwd/tree/dual_chan_pkt_fwd_up_down  
 Was forked by @jlesech https://github.com/tftelkamp/single_chan_pkt_fwd to add json configuration file    
 then forked by @hallard https://github.com/hallard/single_chan_pkt_fwd 
 then forked by @bokse001 https://github.com/bokse001/dual_chan_pkt_fwd to add dual channel support, 
