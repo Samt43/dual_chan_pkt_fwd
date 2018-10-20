@@ -538,10 +538,10 @@ void initLoraModem(byte CE)
         sx1272 = true;
     } else {
         // sx1276?
-        //digitalWrite(RST, LOW);
-        //delay(100);
-        //digitalWrite(RST, HIGH);
-        //delay(100);
+        digitalWrite(RST, LOW);
+        delay(100);
+        digitalWrite(RST, HIGH);
+        delay(100);
         version = ReadRegister(REG_VERSION, CE);
         if (version == 0x12) {
             // sx1276
@@ -645,6 +645,8 @@ int sendPacket(uint8_t *buff_down, uint8_t length, byte CE) {
 	
 	int i=0;
 	//StatictJsonBuffer<256> jsonBuffer;
+
+/*
         JSON_Value *root_val = NULL;
 	JSON_Object *txpk_obj = NULL;
 	//JSON_Value *val = NULL;
@@ -683,19 +685,19 @@ int sendPacket(uint8_t *buff_down, uint8_t length, byte CE) {
 				printf("WARNING: [down] no \"txpk\" object in JSON, TX aborted\n");
 				json_value_free(root_val);
 			}
-
-	const char * data	= json_object_get_string(txpk_obj, "data");
-	uint8_t psize		= (uint8_t) json_value_get_number(json_object_get_value(txpk_obj, "size"));
-	bool ipol		= (bool) json_value_get_boolean(json_object_get_value(txpk_obj,"ipol"));
-	uint8_t powe		= (int8_t) json_value_get_number(json_object_get_value(txpk_obj,"powe"));
-	uint32_t tmst		= (uint32_t) json_value_get_number(json_object_get_value(txpk_obj,"tmst"));
+*/
+	const char * data	= "TODO";// json_object_get_string(txpk_obj, "data");
+	uint8_t psize		= 0;//(uint8_t) json_value_get_number(json_object_get_value(txpk_obj, "size"));
+	bool ipol		= "false";//(bool) json_value_get_boolean(json_object_get_value(txpk_obj,"ipol"));
+	uint8_t powe		= 0; // json_value_get_number(json_object_get_value(txpk_obj,"powe"));
+	uint32_t tmst		= 0; //(uint32_t) json_value_get_number(json_object_get_value(txpk_obj,"tmst"));
 
 	// Not used in the protocol:
-	const char * datr	= json_object_get_string(txpk_obj, "datr");			// eg "SF7BW125"
-	const float ff		= json_value_get_number(json_object_get_value(txpk_obj,"freq"));			// eg 869.525
+	const char * datr	= "TODO"; //json_object_get_string(txpk_obj, "datr");			// eg "SF7BW125"
+	const float ff		= 0 ;//json_value_get_number(json_object_get_value(txpk_obj,"freq"));			// eg 869.525
 	if (debug>=2) { printf("Sending frequency from server package: %lf\n", ff); }
-	const char * modu	= json_object_get_string(txpk_obj, "modu");			// =="LORA"
-	const char * codr	= json_object_get_string(txpk_obj, "codr");
+	const char * modu	= "";//json_object_get_string(txpk_obj, "modu");			// =="LORA"
+	const char * codr	= "";//json_object_get_string(txpk_obj, "codr");
 	//if (root["txpk"].containsKey("imme") ) {
 	//	const bool imme = root["txpk"]["imme"];			// Immediate Transmit (tmst don't care)
 	//}
@@ -1113,7 +1115,7 @@ bool ReceivePacket(byte CE) {
       bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
 
       // Build JSON object.
-      rapidjson::StringBuffer sb;
+      /*rapidjson::StringBuffer sb;
       rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
       writer.StartObject();
       writer.String("rxpk");
@@ -1154,8 +1156,8 @@ bool ReceivePacket(byte CE) {
       writer.EndObject();
       writer.EndArray();
       writer.EndObject();
-
-      std::string json = sb.GetString();
+*/
+      std::string json = "TODO";
       printf("rxpk update: %s\n", json.c_str());
 
       // Build and send message.

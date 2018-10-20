@@ -60,12 +60,6 @@
 
 
 #include "base64.h"
-#include "parson.h"
-
-#include <rapidjson/document.h>
-#include <rapidjson/filereadstream.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
@@ -95,8 +89,6 @@
 static const int CHANNEL = 0;
 
 using namespace std;
-
-using namespace rapidjson;
 
 #define BASE64_MAX_LENGTH 341
 
@@ -326,7 +318,11 @@ void SetupLoRa(byte CE)
     printf("SX1272 detected, starting.\n");
     sx1272 = true;
   } else {
-    // sx1276?
+        // sx1276?
+        digitalWrite(RST, LOW);
+        delay(100);
+        digitalWrite(RST, HIGH);
+        delay(100);
     version = ReadRegister(REG_VERSION, CE);
     if (version == 0x12) {
       // sx1276
@@ -467,42 +463,8 @@ void SendStat()
   time_t t = time(NULL);
   strftime(stat_timestamp, sizeof stat_timestamp, "%F %T %Z", gmtime(&t));
 
-  // Build JSON object.
-  StringBuffer sb;
-  Writer<StringBuffer> writer(sb);
-  writer.StartObject();
-  writer.String("stat");
-  writer.StartObject();
-  writer.String("time");
-  writer.String(stat_timestamp);
-  writer.String("lati");
-  writer.Double(lat);
-  writer.String("long");
-  writer.Double(lon);
-  writer.String("alti");
-  writer.Int(alt);
-  writer.String("rxnb");
-  writer.Uint(cp_nb_rx_rcv);
-  writer.String("rxok");
-  writer.Uint(cp_nb_rx_ok);
-  writer.String("rxfw");
-  writer.Uint(cp_up_pkt_fwd);
-  writer.String("ackr");
-  writer.Double(0);
-  writer.String("dwnb");
-  writer.Uint(0);
-  writer.String("txnb");
-  writer.Uint(0);
-  writer.String("pfrm");
-  writer.String(platform);
-  writer.String("mail");
-  writer.String(email);
-  writer.String("desc");
-  writer.String(description);
-  writer.EndObject();
-  writer.EndObject();
 
-  string json = sb.GetString();
+  string json = "TODO";
   //printf("stat update: %s\n", json.c_str());
   printf("stat update: %s", stat_timestamp);
   if (cp_nb_rx_ok_tot==0) {
@@ -540,7 +502,7 @@ int main()
 
   // Init SPI
   wiringPiSPISetup(SPI_CHANNEL, 500000);
-  wiringPiSPISetup(SPI_CHANNEL_2, 500000);
+  //wiringPiSPISetup(SPI_CHANNEL_2, 500000);
 
   // Setup LORA
   digitalWrite(RST, HIGH);
@@ -548,7 +510,7 @@ int main()
   digitalWrite(RST, LOW);
   delay(100);   
 initLoraModem(0);
-initLoraModem(1);
+//initLoraModem(1);
   //SetupLoRa(0);
   //SetupLoRa(1);
 
@@ -695,16 +657,17 @@ ic=0;
       // start our Led blink timer, LED as been lit in Receivepacket
       led0_timer=millis();
     }
-    if (ReceivePacket(1)) {
-      // Led ON
-      if (ActivityLED_1 != 0xff) {
-        digitalWrite(ActivityLED_1, 1);
-      }
+    //if (ReceivePacket(1)) {
+    //  // Led ON
+    //  if (ActivityLED_1 != 0xff) {
+    //    digitalWrite(ActivityLED_1, 1);
+    //  }
 
       // start our Led blink timer, LED as been lit in Receivepacket
-      led1_timer=millis();
-    }
+     // led1_timer=millis();
 
+//delay(1);
+    //}
    // Receive UDP PUSH_ACK messages from server. (*2, par. 3.3)
    // This is important since the TTN broker will return confirmation
    // messages on UDP for every message sent by the gateway. So we have to consume them..
@@ -750,7 +713,6 @@ ic=0;
       }
     }
 
-
     // Let some time to the OS
     delay(1);
   }
@@ -760,6 +722,7 @@ ic=0;
 
 void LoadConfiguration(string configurationFile)
 {
+    /*
   FILE* p_file = fopen(configurationFile.c_str(), "r");
   char buffer[65536];
   FileReadStream fs(p_file, buffer, sizeof(buffer));
@@ -867,6 +830,7 @@ void LoadConfiguration(string configurationFile)
       }
     }
   }
+  */
 }
 
 void PrintConfiguration()

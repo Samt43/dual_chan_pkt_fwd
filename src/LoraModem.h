@@ -22,13 +22,6 @@
 // ----------------------------------------------------------------------------------------
 
 #include "base64.h"
-#include "parson.h"
-
-#include <rapidjson/document.h>
-#include <rapidjson/filereadstream.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
-
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 
