@@ -7,7 +7,7 @@
        {\
           return _##var; \
        }\
-       auto& Set##var(type val) \
+       auto Set##var(type val) \
        {\
           _##var = val; \
           return *this;\
@@ -15,7 +15,7 @@
     private: \
        type _##var;
 
-class ILoraModem
+class LoraModem
 {
    public :
    struct Configuration
@@ -32,15 +32,17 @@ class ILoraModem
       virtual void OnPacketReceived(const nlohmann::json& json) = 0;
    };
 
-   ILoraModem();
+   LoraModem();
+   ~LoraModem();
 
-   virtual ~ILoraModem() = default;
+
    bool Start(const Configuration& configuration, LoraModemObserver& observer);
    bool SendPacket(const nlohmann::json& json);
 };
 
 class LoraModemBuilder
 {
-    std::unique_ptr<ILoraModem> CreateModem();
+   public:
+    static std::unique_ptr<LoraModem> CreateModem();
 };
 

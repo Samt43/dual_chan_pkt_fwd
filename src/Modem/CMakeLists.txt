@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.7)
+set (CMAKE_CXX_STANDARD 14)
 enable_language(CXX)
 find_package (Threads)
 
@@ -23,3 +24,6 @@ if(NOT BUILD_TYPE STREQUAL "STUB")
    target_link_libraries(LoraModem ${WIRINGPI_LIBRARIES})
 endif()
 
+file(GLOB SRC_TEST_FILES ${PROJECT_SOURCE_DIR}/Test/*.cpp)
+add_executable(testModem ${PROJECT_SOURCE_DIR}/Test/test.cpp)
+target_link_libraries(testModem LoraModem)
