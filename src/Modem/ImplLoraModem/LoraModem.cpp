@@ -50,7 +50,7 @@
 #define HIGH 0
 
 #include <wiringPi.h>
-#include <wiringPiSPI.h>
+#include "WiringPiSpi.h"
 
 sf_t sf = SF7;
 bool sx1272 = false;
@@ -303,11 +303,11 @@ uint8_t readRegister(uint8_t addr)
 {
     uint8_t spibuf[2];
 
-    SelectReceiver(0);
+    //SelectReceiver(0);
     spibuf[0] = addr & 0x7F;
     spibuf[1] = 0x00;
-    wiringPiSPIDataRW(0, spibuf, 2);
-    UnselectReceiver(0);
+    WiringPiSpiHelper::wiringPiSPI1DataRW(0, spibuf, 2);
+    //UnselectReceiver(0);
 
     return spibuf[1];
 }
@@ -340,12 +340,12 @@ void writeRegister(uint8_t addr, uint8_t value)
 {
     uint8_t spibuf[2];
 
-    SelectReceiver(0);
+    //SelectReceiver(0);
     spibuf[0] = addr | 0x80;
     spibuf[1] = value;
-    wiringPiSPIDataRW(0, spibuf, 2);
+    WiringPiSpiHelper::wiringPiSPI1DataRW(0, spibuf, 2);
 
-    UnselectReceiver(0);
+    //UnselectReceiver(0);
 }
 
 
@@ -741,25 +741,25 @@ void initLoraModem()
 {
 	_state = S_INIT;
 	// Reset the transceiver chip with a pulse of 10 mSec
-	digitalWrite(pins.rst, HIGH);
-	delayMicroseconds(10000);
-    digitalWrite(pins.rst, LOW);
-	delayMicroseconds(10000);
+	//digitalWrite(pins.rst, HIGH);
+	//delayMicroseconds(10000);
+    //digitalWrite(pins.rst, LOW);
+	//delayMicroseconds(10000);
 	
 	// 1 Set LoRa Mode
-	opmodeLora();												// set register 0x01 to 0x80
+	//opmodeLora();												// set register 0x01 to 0x80
 	
 	// 2. Set radio to sleep
-	opmode(OPMODE_SLEEP);										// set register 0x01 to 0x00
+	//opmode(OPMODE_SLEEP);										// set register 0x01 to 0x00
 	
 	// 3. Set frequency based on value in freq
-	setFreq(freq);												// set to 868.1MHz
+	//setFreq(freq);												// set to 868.1MHz
 	
 	// 4. Set spreading Factor
-    setRate(sf, 0x04);
+    //setRate(sf, 0x04);
 	
 	// Low Noise Amplifier used in receiver
-    writeRegister(REG_LNA, LNA_MAX_GAIN);  						// 0x0C, 0x23
+    //writeRegister(REG_LNA, LNA_MAX_GAIN);  						// 0x0C, 0x23
 	
     uint8_t version = readRegister(REG_VERSION);				// Read the LoRa chip version id
     if (version == 0x22) {
@@ -768,10 +768,13 @@ void initLoraModem()
         sx1272 = true;
     } else {
         // sx1276?
-        digitalWrite(pins.rst, LOW);
-		delayMicroseconds(10000);
-        digitalWrite(pins.rst, HIGH);
-		delayMicroseconds(10000);
+        //digitalWrite(pins.rst, HIGH);
+		//delayMicroseconds(10000);
+		
+        //digitalWrite(pins.rst, LOW);
+		//delayMicroseconds(10000);
+        //digitalWrite(pins.rst, HIGH);
+		//delayMicroseconds(30000);
 		
         version = readRegister(REG_VERSION);
         if (version == 0x12) {
@@ -1358,7 +1361,7 @@ void cadScanner()
 	setRate(sf, 0x04);
 	
 	// listen to LORA_MAC_PREAMBLE
-	writeRegister(REG_SYNC_WORD, 0x34);							// set reg 0x39 to 0x34
+	//writeRegister(REG_SYNC_WORD, 0x34);							// set reg 0x39 to 0x34
 	
 	// Clear all relevant interrupts
 	writeRegister(REG_IRQ_FLAGS, 0xFF );						// May work better, clear ALL interrupts
@@ -1390,7 +1393,21 @@ void cadScanner()
 void eventHandler() 
 {
 	int buff_index=0;
-	
+    
+    
+    const auto intr = readRegister(REG_IRQ_FLAGS);
+    
+    
+    if (intr & (IRQ_LORA_CDDONE_MASK | IRQ_LORA_RXDONE_MASK | IRQ_LORA_CDDONE_MASK) &&
+        !(intr & (IRQ_LORA_CDDETD_MASK | IRQ_LORA_RXTOUT_MASK | IRQ_LORA_FHSSCH_MASK))
+    )
+    {
+        Interrupt_0(intr);
+    }
+    if (intr & (IRQ_LORA_CDDETD_MASK | IRQ_LORA_RXTOUT_MASK | IRQ_LORA_FHSSCH_MASK)) {
+        Interrupt_1(intr);
+    }
+    
 	// The type of interrupt is dependent on the state we are in
 	// at the moment of receiving.
 	switch (_state) {
@@ -1421,11 +1438,6 @@ void eventHandler()
 	  break;
 	  
 	  default:
-		if (debug >= 2) {
-			Serial.print(F("eH:: Unrecognized state, "));
-			printState(2);
-			return;
-		}
 	  break;
 	  
 	}//switch
@@ -1445,15 +1457,9 @@ void eventHandler()
 // NOTE: We may clear the interrupt but leave the flag for the moment. 
 //	The eventHandler //	should take care of repairing flags between interrupts.
 // ----------------------------------------------------------------------------
-#if REENTRANT==2
-void ICACHE_RAM_ATTR Interrupt_0()
-#else
-void Interrupt_0()
-#endif  
+void Interrupt_0(const int flags)
 {
-		if (debug>=4) Serial.println(F("DIO0")); 
-	// Determine what interrupt flags are set
-	flags = readRegister(REG_IRQ_FLAGS);
+		//if (debug>=4) Serial.println(F("DIO0")); 
 	mask = readRegister(REG_IRQ_FLAGS_MASK);
 	uint8_t intr = flags & ( ~ mask );			// Only react on non masked interrupts
 	uint8_t rssi;
@@ -1479,22 +1485,58 @@ void Interrupt_0()
 	  // So find the right SF with CDDECTD. 
 	  case S_SCAN:
 		// Clear the CADDONE flag
-		writeRegister(REG_IRQ_FLAGS, IRQ_LORA_CDDONE_MASK);
 
+        sf = SF7;
+    
+		writeRegister(REG_IRQ_FLAGS, IRQ_LORA_CDDONE_MASK);
+		writeRegister(REG_IRQ_FLAGS, IRQ_LORA_CDDETD_MASK);
+        setRate(sf, 0x04);						// Set SF with CRC==on
+
+        
+        while (1)
+        {
 		opmode(OPMODE_CAD);
-		
-		rssi = readRegister(REG_RSSI);				// Read the RSSI
+                    //delayMicroseconds(500);
+                    //delayMicroseconds(99);
+                    //delayMicroseconds(72);
+       //rssi = readRegister(REG_RSSI);
+
+       while (1)
+       {
+            const auto intr = readRegister(REG_IRQ_FLAGS);
+                
+                if (intr & IRQ_LORA_CDDETD_MASK)
+                {
+                    Interrupt_1(intr);
+                    return;
+                }
+                else if (intr & IRQ_LORA_CDDONE_MASK)
+                {
+                    break;
+                }
+       }
+       
 		if ( rssi > RSSI_LIMIT ) {
 			if (debug >= 4) {
-				Serial.print(F("DIO0:: CADDONE: ")); 
-				printState(4);
+				//Serial.print("DIO0:: CADDONE: RSSI : "); 
+				//Serial.print((long)rssi); 
+				//printState(4);
 			}
 			_state = S_CAD;							// XXX invoke the interrupt handler again?
+			break;
 		}
+		//Serial.println(F("Retry")); 
+        
+        /*
+        while (1)
+        {
 
-		// If we do not switch to S_SCAN, we have to hop
-		// Instead of waiting for an interrupt we do this on timer bais (more regular).
-		else if (_hop) { hop(); }
+        }
+        */
+        
+        
+        
+        }
 
 		// else keep on scanning
 	  break;
@@ -1506,17 +1548,16 @@ void Interrupt_0()
 		if ((uint8_t)sf < 12) {
 			sf = (sf_t)((uint8_t)sf + 1);			// XXX This would mean SF7 never used
 			setRate(sf, 0x04);						// Set SF with CRC==on
-
+			if (debug>=3) { 
+				//Serial.println(sf); 
+			}
 			// reset interrupt flags for CAD Done
 			writeRegister(REG_IRQ_FLAGS, IRQ_LORA_CDDONE_MASK );
 			opmode(OPMODE_CAD);
-			
-			delayMicroseconds( RSSI_WAIT );
-			rssi = readRegister(REG_RSSI);			// Read the RSSI
 		}
 		// if we are at SF12 level Restart the scanning process
 		else {
-			if (debug>=4) { Serial.println(F("DIO0:: SF Reset, restart scanner")); }
+			//if (debug>=4) { Serial.println(F("DIO0:: SF Reset, restart scanner")); }
 			if (_hop) { hop(); }					// XXX
 			_state = S_SCAN;
 			cadScanner();
@@ -1575,23 +1616,18 @@ void Interrupt_0()
 //		- RXTIMEOUT
 //		- (RXDONE error only)
 // ----------------------------------------------------------------------------
-#if REENTRANT==2
-void ICACHE_RAM_ATTR Interrupt_1()
-#else
-void Interrupt_1()
-#endif 
+void Interrupt_1(const int flags)
 {
-		if (debug>=4) Serial.println(F("DIO1")); 
-	flags = readRegister(REG_IRQ_FLAGS);
-	mask = readRegister(REG_IRQ_FLAGS_MASK);
-	uint8_t intr = flags & ( ~ mask );			// Only react on non masked interrupts
+	//mask = readRegister(REG_IRQ_FLAGS_MASK);
+	//uint8_t intr = flags & ( ~ mask );			// Only react on non masked interrupts
+    uint8_t intr = flags;
 	uint8_t rssi;
 	
 	if (intr == 0x00) { 
 		if (debug>=4) Serial.println(F("DIO1:: NO intr")); 
 		return; 
 	}
-		if (debug>=4) Serial.println(F("DIO1 _ 1")); 
+
 	switch(_state) {
 	  // If we receive an interrupt on dio1 and _state==S_CAD or S_SCAN
 	  case S_CAD:
@@ -1604,8 +1640,9 @@ void Interrupt_1()
 		if (intr & IRQ_LORA_CDDETD_MASK) {
 		
 			if (debug >=3) {
-				Serial.print(F("DIO1:: CADDETD, "));
-				printState(3);
+				//Serial.print(F("DIO1:: CADDETD, "));
+				//Serial.print(sf);
+				//printState(3);
 			}
 						
 			_state = S_RX;							// Set state to receiving
@@ -1616,30 +1653,12 @@ void Interrupt_1()
 			
 			// Accept no interrupts except RXDONE or RXTOUT
 			writeRegister(REG_IRQ_FLAGS_MASK, (uint8_t) ~(IRQ_LORA_RXDONE_MASK | IRQ_LORA_RXTOUT_MASK));
-			
-			//writeRegister(REG_IRQ_FLAGS, IRQ_LORA_CDDETD_MASK );
-			writeRegister(REG_IRQ_FLAGS, 0xFF );	// reset CAD Detect interrupt flags
-			
-			delayMicroseconds( RSSI_WAIT_DOWN );	// Wait some microseconds less
-			rssi = readRegister(REG_RSSI);			// Read the RSSI
-			_rssi = rssi;							// Read the RSSI in the state variable
 
-			//If we have low rssi value, go scan again
-//			if (rssi < ( RSSI_LIMIT_DOWN )) {		// XXX RSSI might drop a little
-//			
-//				if (debug >= 3) {
-//					Serial.print(F("DIO1:: reset S_SCAN, rssi=")); Serial.print(rssi); Serial.print(F(", ")); 
-//					printState(3);
-//				}
-//				if (_hop) { hop(); }				// XXX
-//				_state = S_SCAN;
-//				cadScanner();
-//			}
-//			// else we are going to read and get RXDONE of RXTOUT
-//			else if (debug >= 3 ) {
-//				Serial.print(F("DIO1:: Start S_RX, "));
-//				printState(3);
-//			}
+			writeRegister(REG_IRQ_FLAGS, IRQ_LORA_CDDETD_MASK );	// reset CAD Detect interrupt flags
+			
+			//delayMicroseconds( RSSI_WAIT_DOWN );	// Wait some microseconds less
+			//rssi = readRegister(REG_RSSI);			// Read the RSSI
+			//_rssi = rssi;							// Read the RSSI in the state variable
 		}//if
 		else {
 			if (debug >=3) {
@@ -1652,9 +1671,6 @@ void Interrupt_1()
 	  // If DIO1 is not a CADDETECT interrupt, it is an RXTIMEOUT interrupt
 	  // So we restart the scanner
 	  case S_RX:
-		if (intr & IRQ_LORA_RXDONE_MASK) {
-			if (debug >= 3) { Serial.print(F("DIO1:: Warning RXDONE received, ")); printState(3); }
-		}
 		if (intr & IRQ_LORA_RXTOUT_MASK) {
 			if (debug >= 3) { 
 				Serial.println(F("DIO1:: RXTOUT, ")); 
@@ -1667,8 +1683,6 @@ void Interrupt_1()
 			// scanning takes place as we cannot do it once RXDETTD is set.
 			_state=S_RX;
 			rxLoraModem();
-
-			if (_hop) { hop(); }
 			
 			if (_cad) {
 				// Set the state to CAD scanning
@@ -1688,70 +1702,5 @@ void Interrupt_1()
 		}
 	  break;
 	}
-	
-		if (debug>=4) Serial.println(F("DIO1 _ 1")); 
 }
 
-// ----------------------------------------------------------------------------
-// Frequency Hopping Channel (FHSS) dio2
-// ----------------------------------------------------------------------------
-//void Interrupt_2() 
-//{
-//	uint8_t fhss = readRegister(REG_HOP_CHANNEL);
-//	Serial.print(F("DIO2:: Calling interrupt"));	
-	//if (_hop) {							// XXX HIGHLY experimental
-	//		hop();
-	//}
-//}
-
-
-// ----------------------------------------------------------------------------
-// Interrupt Handler.
-// Both interrupts DIO0 and DIO1 are mapped on GPIO15. Se we have to look at 
-// the interrupt flags to see which interrupt(s) are called.
-//
-// NOTE:: This method may work not as good as just using more GPIO pins on 
-//  the ESP8266 mcu. But in practice it works good enough
-// ----------------------------------------------------------------------------
-#if REENTRANT==2
-void ICACHE_RAM_ATTR Interrupt()
-#else
-void Interrupt()
-#endif
-{
-	uint8_t intr ;
-#if REENTRANT==1
-
-	// Make a sort of mutex by using a volatile variable
-	if (inIntr) {
-		//gwayConfig.reents++;
-		return; 
-	} 
-	else inIntr=true;
-#elif REENTRANT==2
-	if (inIntr) { gwayConfig.reents++; }
-#endif	
-	flags = readRegister(REG_IRQ_FLAGS);
-	mask = readRegister(REG_IRQ_FLAGS_MASK);
-	intr = flags & ( ~ mask );				// Only react on non masked interrupts
-
-	// Check for dio1 interrupts and invoke corresponding interrupt routine
-	if (intr & (IRQ_LORA_RXTOUT_MASK | IRQ_LORA_CDDETD_MASK | IRQ_LORA_FHSSCH_MASK)) { 
-		Interrupt_1(); 
-	}
-
-	flags = readRegister(REG_IRQ_FLAGS);
-	mask = readRegister(REG_IRQ_FLAGS_MASK);
-	intr = flags & ( ~ mask );				// Only react on non masked interrupts
-	
-	// Check for dio0 interrupts
-	if (intr & (IRQ_LORA_RXDONE_MASK | IRQ_LORA_TXDONE_MASK | IRQ_LORA_CDDONE_MASK)) { 
-		Interrupt_0(); 
-	}
-	
-	// Check for dio2 interrupts, Only for Frequency Hopping not used in this code
-	//if (intr & ( IRQ_LORA_FHSSCH_MASK )) { Interrupt_2(); }
-#if REENTRANT>=1
-	inIntr=false;
-#endif
-}

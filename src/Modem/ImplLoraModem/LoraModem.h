@@ -7,10 +7,12 @@ void initLoraModem();
 void rxLoraModem();
 void cadScanner();
 
-void Interrupt_0();
-void Interrupt_1();
+void Interrupt_0(const int flags);
+void Interrupt_1(const int flags);
 void Interrupt();
 void eventHandler();
+
+void test();
 
 // 1-channel LoRa Gateway for ESP8266
 // Copyright (c) 2016, 2017 Maarten Westenberg version for ESP8266
@@ -62,7 +64,7 @@ extern bool _cad;	// Set to true for Channel Activity Detection, only when dio1 
 // Definition of the GPIO pins used by the Gateway for Hallard type boards
 static struct pins {
 	uint8_t dio0=4;	// GPIO15 / D8. For the Hallard board shared between DIO0/DIO1/DIO2
-	uint8_t dio1=1;	// GPIO15 / D8. Used for CAD, may or not be shared with DIO0
+	uint8_t dio1=3;	// GPIO15 / D8. Used for CAD, may or not be shared with DIO0
 	uint8_t dio2=15;	// GPIO15 / D8. Used for frequency hopping, don't care
 	uint8_t ss=6;		// GPIO16 / D0. Select pin connected to SPIO16 / D0
 	uint8_t rst=0;		// GPIO0 / D3. Reset pin not used	
@@ -93,7 +95,7 @@ static struct pins {
 // Do not change these setting for RSSI detection. They are used for CAD
 // Given the correction factor of 157, we can get to -118dB with this rating
 // XXX 40 works
-#define RSSI_LIMIT	39
+#define RSSI_LIMIT	42
 #define RSSI_LIMIT_DOWN 34						// Was 34
 // How long to wait in LoRa mode before using the RSSSI value. 
 // XXX 275 works well in old CAD mode

@@ -1,9 +1,7 @@
 #include "ILoraModem.h"
 #include "LoraModem.h"
-
 #include <wiringPi.h>
-#include <wiringPiSPI.h>
-
+#include "WiringPiSpi.h"
 #define SPI_CHANNEL 0
 
 
@@ -23,25 +21,31 @@ LoraModem::~LoraModem()
     
 }
 
+void Interrupt_0 (void) { 
+    test();
+};
+
+
 bool LoraModem::Start(const Configuration& configuration, LoraModemObserver& observer)
 {
   // Init WiringPI
   wiringPiSetup() ;
-  pinMode(pins.ss, OUTPUT);
+
+  //pinMode(pins.ss, OUTPUT);
   pinMode(pins.dio0, INPUT);
   pinMode(pins.dio1, INPUT);
   pinMode(pins.rst, OUTPUT);
 
   // Init SPI
-  wiringPiSPISetup(SPI_CHANNEL, 500000);
+  WiringPiSpiHelper::wiringPiSPI1Setup(SPI_CHANNEL, 10000000);
+
 
   // Setup LORA
   digitalWrite(pins.rst, HIGH);
   delay(100);
   digitalWrite(pins.rst, LOW);
-  delay(1000);   
-    
-    
+  delay(1000);
+  digitalWrite(pins.rst, HIGH);
 
 	_state = S_INIT;
 	initLoraModem();
@@ -53,12 +57,12 @@ bool LoraModem::Start(const Configuration& configuration, LoraModemObserver& obs
 	// init interrupt handlers, which are shared for GPIO15 / D8, 
 	// we switch on HIGH interrupts
 	if (pins.dio0 == pins.dio1) {
-        wiringPiISR (pins.dio0, INT_EDGE_RISING, Interrupt);
+        //wiringPiISR (pins.dio0, INT_EDGE_RISING, Interrupt);
 	}
 	// Or in the traditional Comresult case
 	else {
         wiringPiISR (pins.dio0, INT_EDGE_RISING, Interrupt_0);
-        wiringPiISR (pins.dio1, INT_EDGE_RISING, Interrupt_1);	
+        //wiringPiISR (pins.dio1, INT_EDGE_RISING, Interrupt_1);	
 	}
     
 	if (_cad) {
@@ -67,12 +71,12 @@ bool LoraModem::Start(const Configuration& configuration, LoraModemObserver& obs
 	}
 	
 	while(1)
-        {
-	    if (_state == S_RXDONE) {
-		eventHandler();							// Is S_RXDONE read a message
-
-	    }   
+    { 
+        eventHandler();
 	}	
+
+  
+  return true;
 
 }
 
