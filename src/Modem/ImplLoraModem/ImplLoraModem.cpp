@@ -22,7 +22,7 @@ LoraModem::~LoraModem()
 }
 
 void Interrupt_0 (void) { 
-    test();
+    //test();
 };
 
 
