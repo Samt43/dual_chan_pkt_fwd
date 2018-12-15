@@ -15,7 +15,7 @@
     private: \
        type _##var;
 
-class LoraModem
+class ILoraModem
 {
    public :
    struct Configuration
@@ -32,17 +32,22 @@ class LoraModem
       virtual void OnPacketReceived(const nlohmann::json& json) = 0;
    };
 
-   LoraModem();
-   ~LoraModem();
+   ILoraModem()
+   {
+   }
+
+   virtual ~ILoraModem()
+   {
+   }
 
 
-   bool Start(const Configuration& configuration, LoraModemObserver& observer);
-   bool SendPacket(const nlohmann::json& json);
+   virtual bool Start(const Configuration& configuration, LoraModemObserver& observer) = 0;
+   virtual bool SendPacket(const nlohmann::json& json) = 0;
 };
 
 class LoraModemBuilder
 {
    public:
-    static std::unique_ptr<LoraModem> CreateModem();
+    static std::unique_ptr<ILoraModem> CreateModem();
 };
 
