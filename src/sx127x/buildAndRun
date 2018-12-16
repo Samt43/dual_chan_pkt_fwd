@@ -1,0 +1,6 @@
+sudo dtoverlay -r spi1-1cs
+sudo dtoverlay spi1-1cs cs0_spidev=disabled
+sudo rmmod spidev
+sudo rmmod sx127x.ko
+make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+sudo insmod sx127x.ko
