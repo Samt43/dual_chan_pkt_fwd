@@ -7,8 +7,8 @@ class ImplLoraModem : public ILoraModem
       ImplLoraModem();
       virtual ~ImplLoraModem();
 
-      virtual bool Start(const Configuration& configuration, LoraModemObserver& observer) override;
+      virtual bool Start(const Configuration& configuration) override;
       virtual bool SendPacket(const nlohmann::json& json) override;
-
+      virtual bool ReceiveNextPacket(nlohmann::json& jsonNextPacket) override;
 
 };

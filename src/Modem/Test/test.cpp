@@ -1,22 +1,26 @@
 #include "ILoraModem.h"
+#include <iostream>
 
-class Observer : public ILoraModem::LoraModemObserver
-{
-    
-    virtual void OnPacketReceived(const nlohmann::json& json) override
-    {
-        
-        
-    }
-    
-};
 
 
 int main()
 {
-    Observer obs;
     auto modem = LoraModemBuilder::CreateModem();
-    modem->Start(ILoraModem::Configuration(), obs);
+    modem->Start(ILoraModem::Configuration());
+    
+    while (1)
+    {
+        nlohmann::json json;
+        if (modem->ReceiveNextPacket(json))
+        {
+            std::cout << json;
+        }
+        else
+        {
+            std::cout << "Error while receiving next Packet";
+            
+        }
+    }
     
     return 0;
     

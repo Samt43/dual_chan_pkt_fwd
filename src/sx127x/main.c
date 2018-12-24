@@ -1130,8 +1130,6 @@ static int sx127x_probe(struct spi_device *spi){
 	int irq;
 	unsigned minor;
 
-
-
 	// allocate all of the crap we need
 	data = kmalloc(sizeof(*data), GFP_KERNEL);
 	if(!data){
@@ -1283,9 +1281,6 @@ if (gpiod_direction_output(data->gpio_reset, 0))
 
         }
 
-
-
-
         data->gpio_interrupt_timeout = gpio_to_desc(22);
 
 	if (gpiod_direction_input(data->gpio_interrupt_timeout))
@@ -1402,6 +1397,15 @@ static struct spi_board_info helloWorld_2_spi_device_info = {
 
 static struct spi_device *spi;
 
+static int sx127x_uevent(struct device *dev, struct kobj_uevent_env *env)
+{
+
+    add_uevent_var(env, "DEVMODE=%#o", 0666);
+
+    return 0;
+
+}
+
 static int __init sx127x_init(void)
 {
 	int ret;
@@ -1420,6 +1424,9 @@ static int __init sx127x_init(void)
 		ret = -ENOMEM;
 		goto out1;
 	}
+
+	// Set the User Rights
+        devclass->dev_uevent = sx127x_uevent;
 
 	ret = spi_register_driver(&sx127x_driver);
 	if(ret){

@@ -27,11 +27,6 @@ class ILoraModem
       GETSET(int, SpiChannel)
    };
 
-   class LoraModemObserver
-   {
-      virtual void OnPacketReceived(const nlohmann::json& json) = 0;
-   };
-
    ILoraModem()
    {
    }
@@ -41,8 +36,10 @@ class ILoraModem
    }
 
 
-   virtual bool Start(const Configuration& configuration, LoraModemObserver& observer) = 0;
+   virtual bool Start(const Configuration& configuration) = 0;
    virtual bool SendPacket(const nlohmann::json& json) = 0;
+   virtual bool ReceiveNextPacket(nlohmann::json& jsonNextPacket) = 0;
+
 };
 
 class LoraModemBuilder
