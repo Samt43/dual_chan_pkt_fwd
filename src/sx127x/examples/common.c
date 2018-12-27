@@ -35,10 +35,10 @@ int setupradio(int fd, enum sx127x_opmode opmode) {
 		return 1;
 	}
 
-        if (ioctl(fd, SX127X_IOCTL_CMD_SETSYNCWORD, 0x34) != 0) {
-                printf("failed to set LoraWan Sync Word\n");
-                return 1;
-        }
+        //if (ioctl(fd, SX127X_IOCTL_CMD_SETSYNCWORD, 0x34) != 0) {
+        //        printf("failed to set LoraWan Sync Word\n");
+        //        return 1;
+        //}
 
 	if (ioctl(fd, SX127X_IOCTL_CMD_SETSF, 7) != 0) {
 		printf("failed to set spreading factor\n");

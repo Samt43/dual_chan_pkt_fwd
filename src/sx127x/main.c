@@ -207,6 +207,8 @@ struct sx127x {
 	struct mutex mutex;
 	unsigned current_sf;
 	unsigned current_rssi;
+	unsigned average_rssi;
+        unsigned current_rssi_limit;
 
 	struct list_head device_entry;
 	dev_t devt;
@@ -1091,13 +1093,17 @@ static void sx127x_irq_work_handler(struct work_struct *work){
 	// TODO : Change SF
                    //dev_info(data->chardevice, "CAD done, nothing detected\n");
 
-			if (data->current_sf < 12 && data->current_rssi > 55) {
+			if (data->current_sf < 12 && data->current_rssi >= data->current_rssi_limit) {
 				data->current_sf = (data->current_sf + 1);			// XXX This would mean SF7 never used
 				sx127x_setsf(data,data->current_sf);
 			}
 			else if (data->current_sf != 7)
 			{
 				dev_info(data->chardevice, "Restart scanner\n");
+                                dev_info(data->chardevice, "average_rssi %d \n", data->average_rssi);
+                                dev_info(data->chardevice, "current_rssi_limit %d \n", data->current_rssi_limit);
+                                dev_info(data->chardevice, "current_rssi %d \n", data->current_rssi);
+                                dev_info(data->chardevice, "current_sf %d \n", data->current_sf);
 				data->current_sf = 7;
 				sx127x_setsf(data,data->current_sf);
 			}
@@ -1105,9 +1111,12 @@ static void sx127x_irq_work_handler(struct work_struct *work){
 		        sx127x_setopmode(data, SX127X_OPMODE_CAD, false);
 			
                         // SF7 symbol time + 240 us ???
-			usleep_range(1000, 1500);
+			usleep_range(1400, 1500);
 			//udelay(1550);
 			sx127x_reg_read(data->spidevice, 0x1B, &data->current_rssi);
+                        data->average_rssi = (data->average_rssi * 199 + data->current_rssi * 1000) / 200;
+                        data->current_rssi_limit = data->average_rssi / 1000 + 8;
+
 	//dev_info(data->chardevice, "RSSI : %d\n", data->current_rssi);
 
 			//printk("RSSI : %d\n", data->current_rssi);
@@ -1139,6 +1148,9 @@ static int sx127x_probe(struct spi_device *spi){
 	}
 
 	data->open = 0;
+        data->average_rssi = 0;
+        data->current_rssi_limit = 0;
+
         INIT_WORK(&data->irq_timeout_work, sx127x_irq_timeout_work_handler);
         INIT_WORK(&data->irq_work, sx127x_irq_work_handler);
 	INIT_LIST_HEAD(&data->device_entry);
