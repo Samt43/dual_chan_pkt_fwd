@@ -7,7 +7,7 @@
        {\
           return _##var; \
        }\
-       auto Set##var(type val) \
+       auto& Set##var(type val) \
        {\
           _##var = val; \
           return *this;\
@@ -20,11 +20,7 @@ class ILoraModem
    public :
    struct Configuration
    {
-      GETSET(int, ssPin)
-      GETSET(int, dio0)
-      GETSET(int, Rst)
-      GETSET(int, ActivityLED)
-      GETSET(int, SpiChannel)
+      GETSET(bool, AllSF)
    };
 
    ILoraModem()

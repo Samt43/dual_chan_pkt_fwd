@@ -1100,9 +1100,9 @@ static void sx127x_irq_work_handler(struct work_struct *work){
 			else if (data->current_sf != 7)
 			{
 				dev_info(data->chardevice, "Restart scanner\n");
-                                dev_info(data->chardevice, "average_rssi %d \n", data->average_rssi);
-                                dev_info(data->chardevice, "current_rssi_limit %d \n", data->current_rssi_limit);
-                                dev_info(data->chardevice, "current_rssi %d \n", data->current_rssi);
+                                dev_info(data->chardevice, "average_rssi %d \n", data->average_rssi - 157);
+                                dev_info(data->chardevice, "current_rssi_limit %d \n", data->current_rssi_limit - 157);
+                                dev_info(data->chardevice, "current_rssi %d \n", data->current_rssi - 157);
                                 dev_info(data->chardevice, "current_sf %d \n", data->current_sf);
 				data->current_sf = 7;
 				sx127x_setsf(data,data->current_sf);
