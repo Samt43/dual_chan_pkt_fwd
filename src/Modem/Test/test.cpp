@@ -10,10 +10,11 @@ int main()
     
     while (1)
     {
-        nlohmann::json json;
-        if (modem->ReceiveNextPacket(json))
+        std::string payload;
+        ILoraModem::PacketInfos infos;
+        if (modem->ReceiveNextPacket(payload, infos))
         {
-            std::cout << json;
+            std::cout << payload;
         }
         else
         {

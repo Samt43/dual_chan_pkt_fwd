@@ -89,25 +89,36 @@ bool ImplLoraModem::Start(const Configuration& configuration)
 
 }
 
-bool ImplLoraModem::ReceiveNextPacket(nlohmann::json& json)
+bool ImplLoraModem::ReceiveNextPacket(std::string& payloadPacket, PacketInfos& infos)
 {
+    bool ret= false;
+    uint8_t buff[1025];
 
-	uint8_t* buff = new uint8_t[1024];
+    if (read(fd, buff, sizeof(size_t)) &&
+    read(fd, buff + sizeof(size_t), *((size_t*) buff)))
+    {
+        struct sx127x_pkt* pkt = (sx127x_pkt*)(buff);
+        uint8_t* payload = buff + pkt->hdrlen;
 
-    read(fd, buff, sizeof(size_t));
-    read(fd, buff + sizeof(size_t), *((size_t*) buff));
+        printf("payloadlen: %zd bytes, snr: %ddB, rssi: %ddBm\n",
+                        pkt->payloadlen, (int) pkt->snr, (int) pkt->rssi);
+        //printf("%s\n", payload);
 
-    struct sx127x_pkt* pkt = (sx127x_pkt*)(buff);
-    uint8_t* payload = buff + pkt->hdrlen;
+        if ((pkt->payloadlen + pkt->hdrlen) < sizeof (buff))
+        {
+            printhex(payload, pkt->payloadlen);
+            payload[pkt->payloadlen] = '\0';
+            payloadPacket = (char*)payload;
+            infos.rssi = pkt->rssi;
+            infos.lsnr = pkt->snr;
+            ret = true;
+        }
+        else {
+            std::cout<<"not enough bits allocated !"<<std::endl;
+        }
+    }
 
-    printf("payloadlen: %zd bytes, snr: %ddB, rssi: %ddBm\n",
-                    pkt->payloadlen, (int) pkt->snr, (int) pkt->rssi);
-    //printf("%s\n", payload);
-    printhex(payload, pkt->payloadlen);
-
-    write(fd, payload, pkt->payloadlen);
-    
-    delete buff;
+    return ret;
 }
 
 bool ImplLoraModem::SendPacket(const nlohmann::json& json)

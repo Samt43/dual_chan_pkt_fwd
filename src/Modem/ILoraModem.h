@@ -31,10 +31,15 @@ class ILoraModem
    {
    }
 
+   struct PacketInfos
+   {
+       int rssi;
+       double lsnr;
+   };
 
    virtual bool Start(const Configuration& configuration) = 0;
    virtual bool SendPacket(const nlohmann::json& json) = 0;
-   virtual bool ReceiveNextPacket(nlohmann::json& jsonNextPacket) = 0;
+   virtual bool ReceiveNextPacket(std::string& payloadPacket, PacketInfos& infos) = 0;
 
 };
 

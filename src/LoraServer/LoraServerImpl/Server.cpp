@@ -2,7 +2,6 @@
 #include "Server.hpp"
 #include <iostream>
 
-
 // UDP Connection
 #include <arpa/inet.h>
 #include <net/if.h>
@@ -16,7 +15,7 @@
 int main()
 {
     Server serveur;
-    serveur.Start();
+    serveur.Start(IPServer{"router.eu.staging.thethings.network",1700});
     
     // Todo : implement stop when SIG received
     
@@ -30,68 +29,151 @@ void Die(const char *s)
   exit(1);
 }
 
-bool Server::Start()
+bool Server::Start(const IPServer& config)
 {
     std::cout << "Server Starting" << std::endl;
     auto modem = LoraModemBuilder::CreateModem();
     modem->Start(ILoraModem::Configuration());
 
-	/* network socket creation */
-	struct addrinfo hints;
-	struct addrinfo *result; /* store result of getaddrinfo */
-	struct addrinfo *q; /* pointer to move into *result data */
-	char host_name[64];
-	char port_name[64];
-	/* prepare hints to open network sockets */
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC; /* should handle IP v4 or v6 automatically */
-	hints.ai_socktype = SOCK_DGRAM;
-
-    for(const auto& server : m_Servers) {
-        if (server.enabled) 
-        {
-            si_other.sin_port = htons(it->port);
-
-            SolveHostname(it->address.c_str(), it->port, &si_other);
-
-            i = getaddrinfo(it->address.c_str(), "1700", &hints, &result);
-            if (i != 0) {
-                printf("ERROR: [down] getaddrinfo on address %s (port %i) returned: %s\n", it->address.c_str(), it->port, gai_strerror(i));
-            }
-
-            /* try to open socket for downstream traffic */
-            for (q=result; q!=NULL; q=q->ai_next) {
-                sock_down[ic] = socket(q->ai_family, q->ai_socktype,q->ai_protocol);
-                if (sock_down[ic] == -1) continue; /* try next field */
-                else break; /* success, get out of loop */
-            }
-            if (q == NULL) {
-                printf("ERROR: [down] failed to open socket to any of server %s addresses (port %i)\n", it->address.c_str(), it->port);
-                i = 1;
-                for (q=result; q!=NULL; q=q->ai_next) {
-                    getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
-                    printf("INFO: [down] result %i host:%s service:%s\n", i, host_name, port_name);
-                    ++i;
-                }
-            }
-            /* connect so we can send/receive packet with the server only */
-            i = connect(sock_down[ic], q->ai_addr, q->ai_addrlen);
-            if (i != 0) {
-            printf("ERROR: [down] connect address %s (port %i) returned: %s\n", it->address.c_str(), it->port, strerror(errno));
-            }
-            freeaddrinfo(result);
-
-            /* If we made it through to here, this server is live */
-            printf("INFO: Successfully contacted server %s (port %i) \n", it->address.c_str(), it->port);
+    m_pUDPConnection = std::make_unique<UDPConnection>(config);
+    if (!m_pUDPConnection->Connect())
+    {
+        std::cout<<"Could not connect, failure";
+        exit(-1);
     }
 
-    
     while (1)
     {
-        nlohmann::json json;
-        if (modem->ReceiveNextPacket(json))
+        std::string packet;
+        ILoraModem::PacketInfos infos;
+        if (modem->ReceiveNextPacket(packet, infos))
         {
-            std::cout << json;
+            std::cout << "Packet to be transmited : ";
+            std::cout << packet << std::endl
+                      << "RSSI : " << infos.rssi << std::endl
+                      << "SNR : " <<infos.lsnr << std::endl;
+
+            /*
+            // OK got one
+            bool ret = true;
+
+            uint8_t value = ReadRegister(REG_PKT_SNR_VALUE, CE);
+
+            if (value & 0x80) { // The SNR sign bit is 1
+              // Invert and divide by 4
+              value = ((~value + 1) & 0xFF) >> 2;
+              SNR = -value;
+            } else {
+              // Divide by 4
+              SNR = ( value & 0xFF ) >> 2;
+            }
+
+            rssicorr = sx1272 ? 139 : 157;
+
+            printf("CE%i Packet RSSI: %d, ", CE, ReadRegister(0x1A, CE) - rssicorr);
+            printf("RSSI: %d, ", ReadRegister(0x1B,CE) - rssicorr);
+            printf("SNR: %li, ", SNR);
+            printf("Length: %hhu Message:'", length);
+            for (int i=0; i<length; i++) {
+              char c = (char) message[i];
+              printf("%c",isprint(c)?c:'.');
+            }
+            printf("'\n");
+
+            char buff_up[TX_BUFF_SIZE]; /* buffer to compose the upstream packet
+            int buff_index = 0;
+
+            /* gateway <-> MAC protocol variables */
+            //static uint32_t net_mac_h; /* Most Significant Nibble, network order */
+            //static uint32_t net_mac_l; /* Least Significant Nibble, network order */
+
+            /* pre-fill the data buffer with fixed fields
+            buff_up[0] = PROTOCOL_VERSION;
+            buff_up[3] = PKT_PUSH_DATA;
+
+            /* process some of the configuration variables
+            //net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (lgwm>>32)));
+            //net_mac_l = htonl((uint32_t)(0xFFFFFFFF &  lgwm  ));
+            //*(uint32_t *)(buff_up + 4) = net_mac_h;
+            //*(uint32_t *)(buff_up + 8) = net_mac_l;
+
+            buff_up[4] = (uint8_t)ifr.ifr_hwaddr.sa_data[0];
+            buff_up[5] = (uint8_t)ifr.ifr_hwaddr.sa_data[1];
+            buff_up[6] = (uint8_t)ifr.ifr_hwaddr.sa_data[2];
+            buff_up[7] = 0xFF;
+            buff_up[8] = 0xFF;
+            buff_up[9] = (uint8_t)ifr.ifr_hwaddr.sa_data[3];
+            buff_up[10] = (uint8_t)ifr.ifr_hwaddr.sa_data[4];
+            buff_up[11] = (uint8_t)ifr.ifr_hwaddr.sa_data[5];
+
+            /* start composing datagram with the header
+            uint8_t token_h = (uint8_t)rand(); /* random token
+            uint8_t token_l = (uint8_t)rand(); /* random token
+            buff_up[1] = token_h;
+            buff_up[2] = token_l;
+            buff_index = 12; /* 12-byte header
+
+            // TODO: tmst can jump is time is (re)set, not good.
+            struct timeval now;
+            gettimeofday(&now, NULL);
+            uint32_t tmst = (uint32_t)(now.tv_sec * 1000000 + now.tv_usec);
+
+            // Encode payload.
+            char b64[BASE64_MAX_LENGTH];
+            bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
+
+            // Build JSON object.
+            StringBuffer sb;
+            Writer<StringBuffer> writer(sb);
+            writer.StartObject();
+            writer.String("rxpk");
+            writer.StartArray();
+            writer.StartObject();
+            writer.String("tmst");
+            writer.Uint(tmst);
+            writer.String("freq");
+            if (CE == 0) {
+              writer.Double((double)freq / 1000000);
+              writer.String("chan");
+              writer.Uint(0);
+            } else {
+              writer.Double((double)freq_2 / 1000000);
+              writer.String("chan");
+              writer.Uint(1);
+            }
+            writer.String("rfch");
+            writer.Uint(0);
+            writer.String("stat");
+            writer.Uint(1);
+            writer.String("modu");
+            writer.String("LORA");
+            writer.String("datr");
+            char datr[] = "SFxxBWxxx";
+            snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", sf, bw);
+            writer.String(datr);
+            writer.String("codr");
+            writer.String("4/5");
+            writer.String("rssi");
+            writer.Int(ReadRegister(0x1A, CE) - rssicorr);
+            writer.String("lsnr");
+            writer.Double(SNR); // %li.
+            writer.String("size");
+            writer.Uint(length);
+            writer.String("data");
+            writer.String(b64);
+            writer.EndObject();
+            writer.EndArray();
+            writer.EndObject();
+
+            string json = sb.GetString();
+            printf("rxpk update: %s\n", json.c_str());
+
+            // Build and send message.
+            memcpy(buff_up + 12, json.c_str(), json.size());
+            SendUdp(buff_up, buff_index + json.size());
+
+            */
+
         }
         else
         {
@@ -104,61 +186,60 @@ bool Server::Start()
 
 void Server::Stop()
 {
-    
+    // TODO;
     
 }
 
 
-void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_sin)
+void Server::SendUdp(const std::string& str)
 {
-  struct addrinfo hints;
-  memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_DGRAM;
-  hints.ai_protocol = IPPROTO_UDP;
-
-  char service[6] = { '\0' };
-  snprintf(service, 6, "%hu", port);
-
-  struct addrinfo* p_result = NULL;
-
-  // Resolve the domain name into a list of addresses
-  int error = getaddrinfo(p_hostname, service, &hints, &p_result);
-  if (error != 0) {
-      fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
-      exit(EXIT_FAILURE);
-  }
-
-  // Loop over all returned results
-  for (struct addrinfo* p_rp = p_result; p_rp != NULL; p_rp = p_rp->ai_next) {
-    struct sockaddr_in* p_saddr = (struct sockaddr_in*)p_rp->ai_addr;
-    //printf("%s solved to %s\n", p_hostname, inet_ntoa(p_saddr->sin_addr));
-    p_sin->sin_addr = p_saddr->sin_addr;
-  }
-
-  freeaddrinfo(p_result);
+    m_pUDPConnection->SendUdp(str);
 }
 
 
-void SendUdp(char *msg, int length)
+void UDPConnection::SendUdp(const std::string &str)
 {
-    for(const auto& server : m_Servers) {
-        if (server.enabled) 
-        {
-            si_other.sin_port = htons(server.port);
-
-            if (debug>1) {printf ("Sending message to server: %s\n", server.address.c_str());
-            // for (int i=0;i<length;i++) {
-            //   printf("%i:", msg[i]);
-            // }
-            //		printf("\n");
-            }
-            SolveHostname(server.address.c_str(), server.port, &si_other);
-            if (sendto(s, (char *)msg, length, 0 , (struct sockaddr *) &si_other, slen)==-1)
-            {
-                Die("sendto()");
-            }
-        }
+    if (send(m_Socket, str.c_str(), str.length(), 0) == -1)
+    {
+        Die("sendto()");
     }
 }
 
+bool UDPConnection::Connect()
+{
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+
+    struct addrinfo* p_result = nullptr;
+    int ret = getaddrinfo(m_ServeurParams.address.c_str(), "1700", &hints, &p_result);
+    if (ret != 0) {
+        printf("ERROR: [down] getaddrinfo on address %s (port %i) returned: %s\n", m_ServeurParams.address.c_str(), m_ServeurParams.port, gai_strerror(ret));
+    }
+
+    /* try to open socket for downstream traffic */
+    struct addrinfo* currentResult = nullptr;
+    for (currentResult=p_result; currentResult!=nullptr; currentResult=currentResult->ai_next) {
+        m_Socket = socket(currentResult->ai_family, currentResult->ai_socktype,currentResult->ai_protocol);
+        if (m_Socket == -1) continue; /* try next field */
+        else break; /* success, get out of loop */
+    }
+    if (currentResult == nullptr) {
+        printf("ERROR: [down] failed to open socket to any of server %s addresses (port %i)\n", m_ServeurParams.address.c_str(), m_ServeurParams.port);
+        return false;
+    }
+    /* connect so we can send/receive packet with the server only */
+    ret = connect(m_Socket, currentResult->ai_addr, currentResult->ai_addrlen);
+    if (ret != 0) {
+        printf("ERROR: [down] connect address %s (port %i) returned: %s\n", m_ServeurParams.address.c_str(), m_ServeurParams.port, strerror(errno));
+    }
+    freeaddrinfo(currentResult);
+
+    /* If we made it through to here, this server is live */
+    printf("INFO: Successfully contacted server %s (port %i) \n", m_ServeurParams.address.c_str(), m_ServeurParams.port);
+
+    return true;
+
+}
