@@ -1053,7 +1053,20 @@ static void sx127x_irq_work_handler(struct work_struct *work){
 		pkt.hdrlen = sizeof(pkt);
 		pkt.payloadlen = len;
 		pkt.len = pkt.hdrlen + pkt.payloadlen;
-		pkt.snr = (__s16)(snr << 2) / 4 ;
+
+
+		if( snr & 0x80 ) // The SNR sign bit is 1
+		{
+			// Invert and divide by 4
+			pkt.snr = ( ( ~snr + 1 ) & 0xFF ) >> 2;
+			pkt.snr = -pkt.snr;
+		}
+		else
+		{
+			// Divide by 4
+			pkt.snr = ( snr & 0xFF ) >> 2;
+		}
+
 		pkt.rssi = -157 + rssi; //TODO fix this for the LF port
 
 		if(irqflags & SX127X_REG_LORA_IRQFLAGS_PAYLOADCRCERROR){

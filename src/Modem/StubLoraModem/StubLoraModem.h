@@ -16,8 +16,8 @@ class LoraModemStub : public ILoraModem
     {
         sleep(2);
         payloadPacket = "AAAA";
-        infos.lsnr = 45;
-        infos.rssi = 102;
+        infos.lsnr = 6;
+        infos.rssi = -105;
         return true;
     }
 };

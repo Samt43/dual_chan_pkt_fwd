@@ -69,10 +69,10 @@ bool ImplLoraModem::Start(const Configuration& configuration)
         return false;
 	}
 
-        //if (ioctl(fd, SX127X_IOCTL_CMD_SETSYNCWORD, 0x34) != 0) {
-        //std::cout<<"failed to set LoraWan Sync Word"<<std::endl;
-        //return false;
-       // }
+    if (ioctl(fd, SX127X_IOCTL_CMD_SETSYNCWORD, 0x34) != 0) {
+        std::cout<<"failed to set LoraWan Sync Word"<<std::endl;
+        return false;
+    }
 
 	if (ioctl(fd, SX127X_IOCTL_CMD_SETSF, 7) != 0) {
 		std::cout<<"failed to set spreading factor"<<std::endl;
