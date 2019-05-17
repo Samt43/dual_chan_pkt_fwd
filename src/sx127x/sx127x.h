@@ -56,7 +56,7 @@ struct sx127x_pkt {
 	size_t hdrlen;
 	size_t payloadlen;
 
-    // TODO : SF
+	__s16 sf;
 	__s16 snr;
 	__s16 rssi;
 	__u32 fei;

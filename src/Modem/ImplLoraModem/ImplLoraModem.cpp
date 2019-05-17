@@ -90,7 +90,7 @@ bool ImplLoraModem::ReceiveNextPacket(Packet& packet)
         if ((pkt->payloadlen + pkt->hdrlen) < sizeof (buff))
         {
             packet.SetPayload(
-                        7,
+                        pkt->sf,
                         pkt->snr,
                         pkt->rssi,
                         pkt->payloadlen,

@@ -1053,6 +1053,7 @@ static void sx127x_irq_work_handler(struct work_struct *work){
 		pkt.hdrlen = sizeof(pkt);
 		pkt.payloadlen = len;
 		pkt.len = pkt.hdrlen + pkt.payloadlen;
+                pkt.sf = data->current_sf;
 
 
 		if( snr & 0x80 ) // The SNR sign bit is 1
