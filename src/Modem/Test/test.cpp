@@ -11,8 +11,8 @@ int main()
     while (1)
     {
         std::string payload;
-        ILoraModem::PacketInfos infos;
-        if (modem->ReceiveNextPacket(payload, infos))
+        ILoraModem::Packet packet;
+        if (modem->ReceiveNextPacket(packet))
         {
             std::cout << payload;
         }

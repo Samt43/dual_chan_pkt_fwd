@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <memory>
+#include <net/if.h>
 
 typedef struct IPServer
 {
@@ -16,11 +17,19 @@ public :
 
     void SendUdp(const std::string& str);
 
+    const ifreq& GetIFreq() const
+    {
+        return m_ifr;
+    }
+
     bool Connect();
 
 private:
+    struct ifreq ComputeIfreq(int socket);
+    struct ifreq m_ifr;
     IPServer m_ServeurParams;
     int m_Socket;
+
 };
 
 class Server

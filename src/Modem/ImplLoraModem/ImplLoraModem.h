@@ -9,6 +9,9 @@ class ImplLoraModem : public ILoraModem
 
       virtual bool Start(const Configuration& configuration) override;
       virtual bool SendPacket(const nlohmann::json& json) override;
-      virtual bool ReceiveNextPacket(std::string& payloadPacket, PacketInfos& infos) override;
+      virtual bool ReceiveNextPacket(Packet& packet) override;
+
+private:
+      int fd;
 
 };

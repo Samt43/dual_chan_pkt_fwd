@@ -7,23 +7,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-int fd;
-
-#define COLWIDTH 8
-#define OFFSET(r, c) ((r * COLWIDTH) + c)
-#define REMAINING(r, c, l) ((int) l - OFFSET(r, c))
-void printhex(uint8_t* buff, size_t len) {
-	int col = 0;
-	for (int row = 0; (REMAINING(row, 0, len) > 0); row++) {
-		for (col = 0; (col < COLWIDTH) && (REMAINING(row, col, len) > 0);
-				col++) {
-			uint8_t b = buff[OFFSET(row, col)];
-			char c = b >= 0x20 && b <= 0x7e ? b : '.';
-			printf("%02x [%c] ", b, c);
-		}
-		printf("\n");
-	}
-}
 
 std::unique_ptr<ILoraModem> LoraModemBuilder::CreateModem()
 {
@@ -89,7 +72,7 @@ bool ImplLoraModem::Start(const Configuration& configuration)
 
 }
 
-bool ImplLoraModem::ReceiveNextPacket(std::string& payloadPacket, PacketInfos& infos)
+bool ImplLoraModem::ReceiveNextPacket(Packet& packet)
 {
     bool ret= false;
     uint8_t buff[1025];
@@ -106,11 +89,12 @@ bool ImplLoraModem::ReceiveNextPacket(std::string& payloadPacket, PacketInfos& i
 
         if ((pkt->payloadlen + pkt->hdrlen) < sizeof (buff))
         {
-            printhex(payload, pkt->payloadlen);
-            payload[pkt->payloadlen] = '\0';
-            payloadPacket = (char*)payload;
-            infos.rssi = pkt->rssi;
-            infos.lsnr = pkt->snr;
+            packet.SetPayload(
+                        7,
+                        pkt->snr,
+                        pkt->rssi,
+                        pkt->payloadlen,
+                        (size_t*)payload);
             ret = true;
         }
         else {

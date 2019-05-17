@@ -1,8 +1,13 @@
 #include <Modem/ILoraModem.h>
 #include "Server.hpp"
+#include "base64.h"
+#include <bitset>
+#include <sstream>
 #include <iostream>
+#include <string>
 
 // UDP Connection
+#include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
@@ -10,6 +15,32 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <netdb.h>
+
+#define BASE64_MAX_LENGTH 341
+#define TX_BUFF_SIZE  2048
+#define PROTOCOL_VERSION  1
+#define PKT_PUSH_DATA 0
+#define PKT_PUSH_ACK  1
+#define PKT_PULL_DATA 2
+#define PKT_PULL_RESP 3
+#define PKT_PULL_ACK  4
+
+
+#define COLWIDTH 8
+#define OFFSET(r, c) ((r * COLWIDTH) + c)
+#define REMAINING(r, c, l) ((int) l - OFFSET(r, c))
+void printhex(uint8_t* buff, size_t len) {
+    int col = 0;
+    for (int row = 0; (REMAINING(row, 0, len) > 0); row++) {
+        for (col = 0; (col < COLWIDTH) && (REMAINING(row, col, len) > 0);
+                col++) {
+            uint8_t b = buff[OFFSET(row, col)];
+            char c = b >= 0x20 && b <= 0x7e ? b : '.';
+            printf("%02x [%c] ", b, c);
+        }
+        printf("\n");
+    }
+}
 
 
 int main()
@@ -32,8 +63,14 @@ void Die(const char *s)
 bool Server::Start(const IPServer& config)
 {
     std::cout << "Server Starting" << std::endl;
+
     auto modem = LoraModemBuilder::CreateModem();
-    modem->Start(ILoraModem::Configuration());
+
+    if (!modem->Start(ILoraModem::Configuration()))
+    {
+        std::cerr<< "Can't start modem";
+        return -1;
+    }
 
     m_pUDPConnection = std::make_unique<UDPConnection>(config);
     if (!m_pUDPConnection->Connect())
@@ -42,138 +79,101 @@ bool Server::Start(const IPServer& config)
         exit(-1);
     }
 
+
+    const auto& ifr = m_pUDPConnection->GetIFreq();
+    // ID based on MAC Adddress of interface
+    printf( "Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
+                (uint8_t)ifr.ifr_hwaddr.sa_data[0],
+                (uint8_t)ifr.ifr_hwaddr.sa_data[1],
+                (uint8_t)ifr.ifr_hwaddr.sa_data[2],
+                (uint8_t)ifr.ifr_hwaddr.sa_data[3],
+                (uint8_t)ifr.ifr_hwaddr.sa_data[4],
+                (uint8_t)ifr.ifr_hwaddr.sa_data[5]
+    );
+
     while (1)
     {
-        std::string packet;
-        ILoraModem::PacketInfos infos;
-        if (modem->ReceiveNextPacket(packet, infos))
+        ILoraModem::Packet packet;
+        if (modem->ReceiveNextPacket(packet))
         {
             std::cout << "Packet to be transmited : ";
-            std::cout << packet << std::endl
-                      << "RSSI : " << infos.rssi << std::endl
-                      << "SNR : " <<infos.lsnr << std::endl;
+            std::cout << packet.payload << std::endl
+                      << "RSSI : " << packet.rssi << std::endl
+                      << "SNR : " << packet.snr << std::endl;
 
-            /*
-            // OK got one
-            bool ret = true;
+            printhex((u_int8_t*)packet.payload, packet.payloadLen);
 
-            uint8_t value = ReadRegister(REG_PKT_SNR_VALUE, CE);
+            /* 12-byte header */
+            std::stringstream stream;
 
-            if (value & 0x80) { // The SNR sign bit is 1
-              // Invert and divide by 4
-              value = ((~value + 1) & 0xFF) >> 2;
-              SNR = -value;
-            } else {
-              // Divide by 4
-              SNR = ( value & 0xFF ) >> 2;
+            stream
+                    << (uint8_t)PROTOCOL_VERSION
+                    << (uint8_t)rand()
+                    << (uint8_t)rand()
+                    << (uint8_t)PKT_PUSH_DATA
+                    << (uint8_t)ifr.ifr_hwaddr.sa_data[0]
+                    << (uint8_t)ifr.ifr_hwaddr.sa_data[1]
+                    << (uint8_t)ifr.ifr_hwaddr.sa_data[2]
+                    << (uint8_t)0xFF
+                    << (uint8_t)0xFF
+                    << (uint8_t)ifr.ifr_hwaddr.sa_data[3]
+                    << (uint8_t)ifr.ifr_hwaddr.sa_data[4]
+                    << (uint8_t)ifr.ifr_hwaddr.sa_data[5];
+
+
+            for (auto& c : stream.str())
+            {
+                std::cout << +(uint8_t)c << " ";
             }
-
-            rssicorr = sx1272 ? 139 : 157;
-
-            printf("CE%i Packet RSSI: %d, ", CE, ReadRegister(0x1A, CE) - rssicorr);
-            printf("RSSI: %d, ", ReadRegister(0x1B,CE) - rssicorr);
-            printf("SNR: %li, ", SNR);
-            printf("Length: %hhu Message:'", length);
-            for (int i=0; i<length; i++) {
-              char c = (char) message[i];
-              printf("%c",isprint(c)?c:'.');
-            }
-            printf("'\n");
-
-            char buff_up[TX_BUFF_SIZE]; /* buffer to compose the upstream packet
-            int buff_index = 0;
-
-            /* gateway <-> MAC protocol variables */
-            //static uint32_t net_mac_h; /* Most Significant Nibble, network order */
-            //static uint32_t net_mac_l; /* Least Significant Nibble, network order */
-
-            /* pre-fill the data buffer with fixed fields
-            buff_up[0] = PROTOCOL_VERSION;
-            buff_up[3] = PKT_PUSH_DATA;
-
-            /* process some of the configuration variables
-            //net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (lgwm>>32)));
-            //net_mac_l = htonl((uint32_t)(0xFFFFFFFF &  lgwm  ));
-            //*(uint32_t *)(buff_up + 4) = net_mac_h;
-            //*(uint32_t *)(buff_up + 8) = net_mac_l;
-
-            buff_up[4] = (uint8_t)ifr.ifr_hwaddr.sa_data[0];
-            buff_up[5] = (uint8_t)ifr.ifr_hwaddr.sa_data[1];
-            buff_up[6] = (uint8_t)ifr.ifr_hwaddr.sa_data[2];
-            buff_up[7] = 0xFF;
-            buff_up[8] = 0xFF;
-            buff_up[9] = (uint8_t)ifr.ifr_hwaddr.sa_data[3];
-            buff_up[10] = (uint8_t)ifr.ifr_hwaddr.sa_data[4];
-            buff_up[11] = (uint8_t)ifr.ifr_hwaddr.sa_data[5];
-
-            /* start composing datagram with the header
-            uint8_t token_h = (uint8_t)rand(); /* random token
-            uint8_t token_l = (uint8_t)rand(); /* random token
-            buff_up[1] = token_h;
-            buff_up[2] = token_l;
-            buff_index = 12; /* 12-byte header
+            std::cout << stream.str() << "Lenght : " << stream.tellp() << " bytes";
+            //buff_index = 12;
 
             // TODO: tmst can jump is time is (re)set, not good.
             struct timeval now;
-            gettimeofday(&now, NULL);
+            gettimeofday(&now, nullptr);
             uint32_t tmst = (uint32_t)(now.tv_sec * 1000000 + now.tv_usec);
 
             // Encode payload.
             char b64[BASE64_MAX_LENGTH];
-            bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
+            bin_to_b64((uint8_t*)packet.payload, (int)packet.payloadLen, b64, BASE64_MAX_LENGTH);
 
-            // Build JSON object.
-            StringBuffer sb;
-            Writer<StringBuffer> writer(sb);
-            writer.StartObject();
-            writer.String("rxpk");
-            writer.StartArray();
-            writer.StartObject();
-            writer.String("tmst");
-            writer.Uint(tmst);
-            writer.String("freq");
-            if (CE == 0) {
-              writer.Double((double)freq / 1000000);
-              writer.String("chan");
-              writer.Uint(0);
-            } else {
-              writer.Double((double)freq_2 / 1000000);
-              writer.String("chan");
-              writer.Uint(1);
-            }
-            writer.String("rfch");
-            writer.Uint(0);
-            writer.String("stat");
-            writer.Uint(1);
-            writer.String("modu");
-            writer.String("LORA");
-            writer.String("datr");
+            nlohmann::json message;
+            message["rxpk"] = nlohmann::json().array();
+            auto rxpk = nlohmann::json();
+            rxpk["tmst"] = tmst;
+            rxpk["freq"] = (double)868100000/1000000;
+
+            //TODO
+            rxpk["chan"] = 0;
+
+            rxpk["rfch"] = 0;
+            rxpk["stat"] = 1;
+            rxpk["modu"] = "LORA";
+
             char datr[] = "SFxxBWxxx";
-            snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", sf, bw);
-            writer.String(datr);
-            writer.String("codr");
-            writer.String("4/5");
-            writer.String("rssi");
-            writer.Int(ReadRegister(0x1A, CE) - rssicorr);
-            writer.String("lsnr");
-            writer.Double(SNR); // %li.
-            writer.String("size");
-            writer.Uint(length);
-            writer.String("data");
-            writer.String(b64);
-            writer.EndObject();
-            writer.EndArray();
-            writer.EndObject();
 
-            string json = sb.GetString();
-            printf("rxpk update: %s\n", json.c_str());
+
+            // TODO : BW
+            snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", packet.sf, 125);
+            rxpk["datr"] = datr;
+
+            rxpk["codr"] = "4/5";
+            rxpk["rssi"] = packet.rssi;
+            rxpk["lsnr"] = packet.snr;
+            rxpk["size"] = packet.payloadLen;
+            rxpk["data"] = b64;
+
+            message["rxpk"].push_back(rxpk);
+
+            std::cout << "rxpk update: %s\n"
+                      << message;
 
             // Build and send message.
-            memcpy(buff_up + 12, json.c_str(), json.size());
-            SendUdp(buff_up, buff_index + json.size());
+            //memcpy(buff_up + 12, json.c_str(), json.size());
+            //SendUdp(buff_up, buff_index + json.size());
 
-            */
-
+            stream << message.dump();
+            m_pUDPConnection->SendUdp(stream.str());
         }
         else
         {
@@ -205,6 +205,52 @@ void UDPConnection::SendUdp(const std::string &str)
     }
 }
 
+
+ifreq UDPConnection::ComputeIfreq(int socket)
+{
+    std::string mac;
+    std::string socketInterface;
+    struct sockaddr_in addr;
+    struct ifaddrs* ifaddr;
+    struct ifaddrs* ifa;
+    socklen_t addr_len;
+    struct ifreq ifr;
+
+    addr_len = sizeof (addr);
+    getsockname(m_Socket, (struct sockaddr*)&addr, &addr_len);
+    getifaddrs(&ifaddr);
+
+    // look which interface contains the wanted IP.
+    // When found, ifa->ifa_name contains the name of the interface (eth0, eth1, ppp0...)
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
+    {
+        if (ifa->ifa_addr)
+        {
+            if (AF_INET == ifa->ifa_addr->sa_family)
+            {
+                struct sockaddr_in* inaddr = (struct sockaddr_in*)ifa->ifa_addr;
+
+                if (inaddr->sin_addr.s_addr == addr.sin_addr.s_addr)
+                {
+                    if (ifa->ifa_name)
+                    {
+                        socketInterface = ifa->ifa_name;
+                        // Found it
+                    }
+                }
+            }
+        }
+    }
+    freeifaddrs(ifaddr);
+
+    ifr.ifr_addr.sa_family = AF_INET;
+    strncpy(ifr.ifr_name, socketInterface.c_str(), IFNAMSIZ-1);  // use configured network interface eth0 or wlan0
+    ioctl(m_Socket, SIOCGIFHWADDR, &ifr);
+
+
+    return ifr;
+}
+
 bool UDPConnection::Connect()
 {
     struct addrinfo hints;
@@ -230,6 +276,7 @@ bool UDPConnection::Connect()
         printf("ERROR: [down] failed to open socket to any of server %s addresses (port %i)\n", m_ServeurParams.address.c_str(), m_ServeurParams.port);
         return false;
     }
+
     /* connect so we can send/receive packet with the server only */
     ret = connect(m_Socket, currentResult->ai_addr, currentResult->ai_addrlen);
     if (ret != 0) {
@@ -237,9 +284,10 @@ bool UDPConnection::Connect()
     }
     freeaddrinfo(currentResult);
 
+    m_ifr = ComputeIfreq(m_Socket);
+
     /* If we made it through to here, this server is live */
     printf("INFO: Successfully contacted server %s (port %i) \n", m_ServeurParams.address.c_str(), m_ServeurParams.port);
 
     return true;
-
 }

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.7.2)
 
 # You can tweak some common (for all subprojects) stuff here. For example:
 
-set(BUILD_TYPE STUB)
+set(BUILD_TYPE STUBOFF)
 
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
