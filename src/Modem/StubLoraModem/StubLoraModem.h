@@ -18,7 +18,7 @@ class LoraModemStub : public ILoraModem
     virtual bool ReceiveNextPacket(Packet& packet) override
     {
         sleep(2);
-        packet.SetPayload(7, 6, -105, sizeof (fakeOTAA), (size_t*)fakeOTAA);
+        packet.SetPayload(7, 6, -105, sizeof (fakeOTAA), (char*)fakeOTAA);
         return true;
     }
 };

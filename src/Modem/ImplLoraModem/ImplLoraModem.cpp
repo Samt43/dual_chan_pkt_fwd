@@ -94,7 +94,7 @@ bool ImplLoraModem::ReceiveNextPacket(Packet& packet)
                         pkt->snr,
                         pkt->rssi,
                         pkt->payloadlen,
-                        (size_t*)payload);
+                        (char*)payload);
             ret = true;
         }
         else {

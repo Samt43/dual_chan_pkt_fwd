@@ -41,7 +41,7 @@ class ILoraModem
                   const int& aSnr,
                   const int& aRssi,
                   const unsigned int& aPayloadLen,
-                  const size_t* aPayload)
+                  const char* aPayload)
        {
            payload = new char[payloadLen];
            memcpy(payload, aPayload, aPayloadLen);
