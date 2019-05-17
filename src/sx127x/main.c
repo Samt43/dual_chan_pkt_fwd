@@ -9,7 +9,6 @@
 #include <linux/wait.h>
 #include <linux/uaccess.h>
 
-
 #include "sx127x.h"
 
 #define SX127X_DRIVERNAME	"sx127x"
@@ -1114,7 +1113,7 @@ static void sx127x_irq_work_handler(struct work_struct *work){
 			else if (data->current_sf != 7)
 			{
 				dev_info(data->chardevice, "Restart scanner\n");
-                                dev_info(data->chardevice, "average_rssi %d \n", data->average_rssi - 157);
+                                dev_info(data->chardevice, "average_rssi %d \n", data->average_rssi/1000 - 157);
                                 dev_info(data->chardevice, "current_rssi_limit %d \n", data->current_rssi_limit - 157);
                                 dev_info(data->chardevice, "current_rssi %d \n", data->current_rssi - 157);
                                 dev_info(data->chardevice, "current_sf %d \n", data->current_sf);
@@ -1125,11 +1124,19 @@ static void sx127x_irq_work_handler(struct work_struct *work){
 		        sx127x_setopmode(data, SX127X_OPMODE_CAD, false);
 			
                         // SF7 symbol time + 240 us ???
-			usleep_range(1400, 1500);
-			//udelay(1550);
+			
+
+                        // Symbol Time + RSSI during CAD by AN1200.21 Reading channel RSSI during a CAD 
+                        int symbolTime = ((((int)1 << data->current_sf ) ) + 32 ) * 1000000 / 125000;
+                        // symbol Time is in u 
+                        // printk("Symbol Time in us : %d", symbolTime);
+			udelay(symbolTime + 240);
+	
 			sx127x_reg_read(data->spidevice, 0x1B, &data->current_rssi);
-                        data->average_rssi = (data->average_rssi * 199 + data->current_rssi * 1000) / 200;
-                        data->current_rssi_limit = data->average_rssi / 1000 + 8;
+                     	//printk("current RSSI : %d", data->current_rssi); 
+			
+			data->average_rssi = (data->average_rssi * 199 + data->current_rssi * 1000) / 200;
+                       	data->current_rssi_limit = data->average_rssi / 1000 + 4;
 
 	//dev_info(data->chardevice, "RSSI : %d\n", data->current_rssi);
 
@@ -1162,9 +1169,9 @@ static int sx127x_probe(struct spi_device *spi){
 	}
 
 	data->open = 0;
-        data->average_rssi = 0;
+        data->average_rssi = 50000;
         data->current_rssi_limit = 0;
-
+        data->current_sf = 7;
         INIT_WORK(&data->irq_timeout_work, sx127x_irq_timeout_work_handler);
         INIT_WORK(&data->irq_work, sx127x_irq_work_handler);
 	INIT_LIST_HEAD(&data->device_entry);
